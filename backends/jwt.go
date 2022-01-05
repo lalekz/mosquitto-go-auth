@@ -5,6 +5,7 @@ import (
 	"github.com/iegomez/mosquitto-go-auth/hashing"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
+	"io/ioutil"
 )
 
 type JWT struct {
@@ -16,7 +17,7 @@ type tokenOptions struct {
 	parseToken         bool
 	skipUserExpiration bool
 	skipACLExpiration  bool
-	secret             string
+	secret             interface{}
 	userField          string
 }
 
@@ -65,7 +66,16 @@ func NewJWT(authOpts map[string]string, logLevel log.Level, hasher hashing.HashC
 	}
 
 	if secret, ok := authOpts["jwt_secret"]; ok {
-		options.secret = secret
+		options.secret = []byte(secret)
+	}
+
+	if ecdsa_public_key, ok := authOpts["jwt_ecdsa_public_key"]; ok {
+		key, _ := ioutil.ReadFile(ecdsa_public_key)
+		if ecdsaKey, err := jwtGo.ParseECPublicKeyFromPEM(key); err == nil {
+			options.secret = ecdsaKey
+		} else {
+			return nil, errors.New("unable to parse ECDSA public key")
+		}
 	}
 
 	if userField, ok := authOpts["jwt_userfield"]; ok && userField == "Username" {
@@ -125,10 +135,10 @@ func (o *JWT) Halt() {
 	o.checker.Halt()
 }
 
-func getJWTClaims(secret string, tokenStr string, skipExpiration bool) (*Claims, error) {
+func getJWTClaims(secret interface{}, tokenStr string, skipExpiration bool) (*Claims, error) {
 
 	jwtToken, err := jwtGo.ParseWithClaims(tokenStr, &Claims{}, func(token *jwtGo.Token) (interface{}, error) {
-		return []byte(secret), nil
+		return secret, nil
 	})
 
 	expirationError := false

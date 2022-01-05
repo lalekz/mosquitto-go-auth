@@ -67,7 +67,7 @@ var notPresentJwtToken = jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims
 })
 
 var tkOptions = tokenOptions{
-	secret:    jwtSecret,
+	secret:    []byte(jwtSecret),
 	userField: "Username",
 }
 
@@ -77,7 +77,7 @@ func TestJWTClaims(t *testing.T) {
 			token, err := jwtToken.SignedString([]byte(jwtSecret))
 			So(err, ShouldBeNil)
 
-			_, err = getJWTClaims(jwtSecret, token, false)
+			_, err = getJWTClaims([]byte(jwtSecret), token, false)
 			So(err, ShouldBeNil)
 		})
 
@@ -85,7 +85,7 @@ func TestJWTClaims(t *testing.T) {
 			token, err := jwtToken.SignedString([]byte("wrong-secret"))
 			So(err, ShouldBeNil)
 
-			_, err = getJWTClaims(jwtSecret, token, false)
+			_, err = getJWTClaims([]byte(jwtSecret), token, false)
 			So(err, ShouldNotBeNil)
 		})
 
@@ -93,7 +93,7 @@ func TestJWTClaims(t *testing.T) {
 			token, err := wrongJwtToken.SignedString([]byte(jwtSecret))
 			So(err, ShouldBeNil)
 
-			_, err = getJWTClaims(jwtSecret, token, false)
+			_, err = getJWTClaims([]byte(jwtSecret), token, false)
 			So(err, ShouldBeNil)
 		})
 
@@ -101,7 +101,7 @@ func TestJWTClaims(t *testing.T) {
 			token, err := expiredToken.SignedString([]byte(jwtSecret))
 			So(err, ShouldBeNil)
 
-			_, err = getJWTClaims(jwtSecret, token, false)
+			_, err = getJWTClaims([]byte(jwtSecret), token, false)
 			So(err, ShouldNotBeNil)
 		})
 
@@ -109,7 +109,7 @@ func TestJWTClaims(t *testing.T) {
 			token, err := expiredToken.SignedString([]byte(jwtSecret))
 			So(err, ShouldBeNil)
 
-			_, err = getJWTClaims(jwtSecret, token, true)
+			_, err = getJWTClaims([]byte(jwtSecret), token, true)
 			So(err, ShouldBeNil)
 		})
 	})
@@ -165,7 +165,7 @@ func TestJsJWTChecker(t *testing.T) {
 		Convey("Tokens may be pre-parsed and passed to the scripts", func() {
 			jsTokenOptions := tokenOptions{
 				parseToken: true,
-				secret:     jwtSecret,
+				secret:     []byte(jwtSecret),
 				userField:  "Username",
 			}
 
