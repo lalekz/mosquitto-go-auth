@@ -84,20 +84,24 @@ func NewJsJWTChecker(authOpts map[string]string, options tokenOptions) (jwtCheck
 	return checker, nil
 }
 
-func (o *jsJWTChecker) GetUser(token string) (bool, error) {
+func (o *jsJWTChecker) GetUser(username, token string) (bool, error) {
 	params := map[string]interface{}{
 		"token": token,
+		"username": username,
 	}
 
 	if o.options.parseToken {
-		username, err := getUsernameForToken(o.options, token, o.options.skipUserExpiration)
+		tokenUsername, err := getUsernameForToken(o.options, token, o.options.skipUserExpiration)
 
 		if err != nil {
 			log.Printf("jwt get user error: %s", err)
 			return false, err
 		}
 
-		params["username"] = username
+		if username != tokenUsername {
+			log.Printf("jwt get user error: username does not match token")
+			return false, nil
+		}
 	}
 
 	granted, err := o.runner.RunScript(o.userScript, params)
@@ -108,20 +112,9 @@ func (o *jsJWTChecker) GetUser(token string) (bool, error) {
 	return granted, err
 }
 
-func (o *jsJWTChecker) GetSuperuser(token string) (bool, error) {
+func (o *jsJWTChecker) GetSuperuser(username string) (bool, error) {
 	params := map[string]interface{}{
-		"token": token,
-	}
-
-	if o.options.parseToken {
-		username, err := getUsernameForToken(o.options, token, o.options.skipUserExpiration)
-
-		if err != nil {
-			log.Printf("jwt get user error: %s", err)
-			return false, err
-		}
-
-		params["username"] = username
+		"username": username,
 	}
 
 	granted, err := o.runner.RunScript(o.superuserScript, params)
@@ -132,23 +125,12 @@ func (o *jsJWTChecker) GetSuperuser(token string) (bool, error) {
 	return granted, err
 }
 
-func (o *jsJWTChecker) CheckAcl(token, topic, clientid string, acc int32) (bool, error) {
+func (o *jsJWTChecker) CheckAcl(username, topic, clientid string, acc int32) (bool, error) {
 	params := map[string]interface{}{
-		"token":    token,
+		"username": username,
 		"topic":    topic,
 		"clientid": clientid,
 		"acc":      acc,
-	}
-
-	if o.options.parseToken {
-		username, err := getUsernameForToken(o.options, token, o.options.skipACLExpiration)
-
-		if err != nil {
-			log.Printf("jwt get user error: %s", err)
-			return false, err
-		}
-
-		params["username"] = username
 	}
 
 	granted, err := o.runner.RunScript(o.aclScript, params)

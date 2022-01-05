@@ -126,11 +126,11 @@ func TestJsJWTChecker(t *testing.T) {
 		checker, err := NewJsJWTChecker(authOpts, tkOptions)
 		So(err, ShouldBeNil)
 
-		userResponse, err := checker.GetUser("correct")
+		userResponse, err := checker.GetUser("test", "correct")
 		So(err, ShouldBeNil)
 		So(userResponse, ShouldBeTrue)
 
-		userResponse, err = checker.GetUser("bad")
+		userResponse, err = checker.GetUser("test", "bad")
 		So(err, ShouldBeNil)
 		So(userResponse, ShouldBeFalse)
 
@@ -142,23 +142,23 @@ func TestJsJWTChecker(t *testing.T) {
 		So(err, ShouldBeNil)
 		So(superuserResponse, ShouldBeFalse)
 
-		aclResponse, err := checker.CheckAcl("correct", "test/topic", "id", 1)
+		aclResponse, err := checker.CheckAcl("test", "test/topic", "id", 1)
 		So(err, ShouldBeNil)
 		So(aclResponse, ShouldBeTrue)
 
-		aclResponse, err = checker.CheckAcl("incorrect", "test/topic", "id", 1)
+		aclResponse, err = checker.CheckAcl("bad", "test/topic", "id", 1)
 		So(err, ShouldBeNil)
 		So(aclResponse, ShouldBeFalse)
 
-		aclResponse, err = checker.CheckAcl("correct", "bad/topic", "id", 1)
+		aclResponse, err = checker.CheckAcl("test", "bad/topic", "id", 1)
 		So(err, ShouldBeNil)
 		So(aclResponse, ShouldBeFalse)
 
-		aclResponse, err = checker.CheckAcl("correct", "test/topic", "wrong-id", 1)
+		aclResponse, err = checker.CheckAcl("test", "test/topic", "wrong-id", 1)
 		So(err, ShouldBeNil)
 		So(aclResponse, ShouldBeFalse)
 
-		aclResponse, err = checker.CheckAcl("correct", "test/topic", "id", 2)
+		aclResponse, err = checker.CheckAcl("test", "test/topic", "id", 2)
 		So(err, ShouldBeNil)
 		So(aclResponse, ShouldBeFalse)
 
@@ -177,7 +177,7 @@ func TestJsJWTChecker(t *testing.T) {
 			token, err := jwtToken.SignedString([]byte(jwtSecret))
 			So(err, ShouldBeNil)
 
-			userResponse, err := checker.GetUser(token)
+			userResponse, err := checker.GetUser(username, token)
 			So(err, ShouldBeNil)
 			So(userResponse, ShouldBeTrue)
 		})
@@ -214,19 +214,16 @@ func TestFilesJWTChecker(t *testing.T) {
 		filesChecker, err := NewFilesJWTChecker(authOpts, logLevel, hasher, tkOptions)
 		So(err, ShouldBeNil)
 
-		token, err := notPresentJwtToken.SignedString([]byte(jwtSecret))
-		So(err, ShouldBeNil)
-
 		Convey("Access should be granted for ACL mentioned users", func() {
-			tt, err := filesChecker.CheckAcl(token, "test/not_present", "id", 1)
+			tt, err := filesChecker.CheckAcl("not_present", "test/not_present", "id", 1)
 
 			So(err, ShouldBeNil)
 			So(tt, ShouldBeTrue)
 		})
 
 		Convey("Access should be granted for general ACL rules on non mentioned users", func() {
-			tt1, err1 := filesChecker.CheckAcl(token, "test/general", "id", 1)
-			tt2, err2 := filesChecker.CheckAcl(token, "test/general_denied", "id", 1)
+			tt1, err1 := filesChecker.CheckAcl(username, "test/general", "id", 1)
+			tt2, err2 := filesChecker.CheckAcl(username, "test/general_denied", "id", 1)
 
 			So(err1, ShouldBeNil)
 			So(tt1, ShouldBeTrue)
@@ -295,7 +292,7 @@ func TestLocalPostgresJWT(t *testing.T) {
 
 			Convey("Given a correct token, it should correctly authenticate it", func() {
 
-				authenticated, err := jwt.GetUser(token)
+				authenticated, err := jwt.GetUser(username, token)
 				So(err, ShouldBeNil)
 				So(authenticated, ShouldBeTrue)
 			})
@@ -305,14 +302,14 @@ func TestLocalPostgresJWT(t *testing.T) {
 				wrongToken, err := wrongJwtToken.SignedString([]byte(jwtSecret))
 				So(err, ShouldBeNil)
 
-				authenticated, err := jwt.GetUser(wrongToken)
+				authenticated, err := jwt.GetUser(username, wrongToken)
 				So(err, ShouldBeNil)
 				So(authenticated, ShouldBeFalse)
 
 			})
 
 			Convey("Given a token that is admin, super user should pass", func() {
-				superuser, err := jwt.GetSuperuser(token)
+				superuser, err := jwt.GetSuperuser(username)
 				So(err, ShouldBeNil)
 				So(superuser, ShouldBeTrue)
 
@@ -321,7 +318,7 @@ func TestLocalPostgresJWT(t *testing.T) {
 					jwt, err := NewLocalJWTChecker(authOpts, log.DebugLevel, hashing.NewHasher(authOpts, ""), tkOptions)
 					So(err, ShouldBeNil)
 
-					superuser, err := jwt.GetSuperuser(token)
+					superuser, err := jwt.GetSuperuser(username)
 					So(err, ShouldBeNil)
 					So(superuser, ShouldBeFalse)
 				})
@@ -345,8 +342,8 @@ func TestLocalPostgresJWT(t *testing.T) {
 				testTopic1 := `test/topic/1`
 				testTopic2 := `test/topic/2`
 
-				tt1, err1 := jwt.CheckAcl(token, testTopic1, clientID, MOSQ_ACL_READ)
-				tt2, err2 := jwt.CheckAcl(token, testTopic2, clientID, MOSQ_ACL_READ)
+				tt1, err1 := jwt.CheckAcl(username, testTopic1, clientID, MOSQ_ACL_READ)
+				tt2, err2 := jwt.CheckAcl(username, testTopic2, clientID, MOSQ_ACL_READ)
 
 				So(err1, ShouldBeNil)
 				So(err2, ShouldBeNil)
@@ -358,7 +355,7 @@ func TestLocalPostgresJWT(t *testing.T) {
 			Convey("Given read only privileges, a pub check should fail", func() {
 
 				testTopic1 := "test/topic/1"
-				tt1, err1 := jwt.CheckAcl(token, testTopic1, clientID, MOSQ_ACL_WRITE)
+				tt1, err1 := jwt.CheckAcl(username, testTopic1, clientID, MOSQ_ACL_WRITE)
 				So(err1, ShouldBeNil)
 				So(tt1, ShouldBeFalse)
 
@@ -366,8 +363,8 @@ func TestLocalPostgresJWT(t *testing.T) {
 
 			Convey("Given wildcard subscriptions against strict db acl, acl checks should fail", func() {
 
-				tt1, err1 := jwt.CheckAcl(token, singleLevelACL, clientID, MOSQ_ACL_READ)
-				tt2, err2 := jwt.CheckAcl(token, hierarchyACL, clientID, MOSQ_ACL_READ)
+				tt1, err1 := jwt.CheckAcl(username, singleLevelACL, clientID, MOSQ_ACL_READ)
+				tt2, err2 := jwt.CheckAcl(username, hierarchyACL, clientID, MOSQ_ACL_READ)
 
 				So(err1, ShouldBeNil)
 				So(err2, ShouldBeNil)
@@ -382,7 +379,7 @@ func TestLocalPostgresJWT(t *testing.T) {
 			So(err, ShouldBeNil)
 
 			Convey("Given a topic not strictly present that matches a db single level wildcard, acl check should pass", func() {
-				tt1, err1 := jwt.CheckAcl(token, "test/topic/whatever", clientID, MOSQ_ACL_READ)
+				tt1, err1 := jwt.CheckAcl(username, "test/topic/whatever", clientID, MOSQ_ACL_READ)
 				So(err1, ShouldBeNil)
 				So(tt1, ShouldBeTrue)
 			})
@@ -393,7 +390,7 @@ func TestLocalPostgresJWT(t *testing.T) {
 			So(err, ShouldBeNil)
 
 			Convey("Given a topic not strictly present that matches a hierarchy wildcard, acl check should pass", func() {
-				tt1, err1 := jwt.CheckAcl(token, "test/what/ever", clientID, MOSQ_ACL_READ)
+				tt1, err1 := jwt.CheckAcl(username, "test/what/ever", clientID, MOSQ_ACL_READ)
 				So(err1, ShouldBeNil)
 				So(tt1, ShouldBeTrue)
 			})
@@ -408,15 +405,15 @@ func TestLocalPostgresJWT(t *testing.T) {
 
 				Convey("So checking against them should give false and true for any user", func() {
 
-					tt1, err1 := jwt.CheckAcl(token, singleLevelACL, clientID, MOSQ_ACL_READ)
-					tt2, err2 := jwt.CheckAcl(token, hierarchyACL, clientID, MOSQ_ACL_READ)
+					tt1, err1 := jwt.CheckAcl(username, singleLevelACL, clientID, MOSQ_ACL_READ)
+					tt2, err2 := jwt.CheckAcl(username, hierarchyACL, clientID, MOSQ_ACL_READ)
 
 					So(err1, ShouldBeNil)
 					So(err2, ShouldBeNil)
 					So(tt1, ShouldBeTrue)
 					So(tt2, ShouldBeTrue)
 
-					superuser, err := jwt.GetSuperuser(token)
+					superuser, err := jwt.GetSuperuser(username)
 					So(err, ShouldBeNil)
 					So(superuser, ShouldBeFalse)
 
@@ -498,7 +495,7 @@ func TestLocalMysqlJWT(t *testing.T) {
 
 			Convey("Given a correct token, it should correctly authenticate it", func() {
 
-				authenticated, err := jwt.GetUser(token)
+				authenticated, err := jwt.GetUser(username, token)
 				So(err, ShouldBeNil)
 				So(authenticated, ShouldBeTrue)
 
@@ -509,14 +506,14 @@ func TestLocalMysqlJWT(t *testing.T) {
 				wrongToken, err := wrongJwtToken.SignedString([]byte(jwtSecret))
 				So(err, ShouldBeNil)
 
-				authenticated, err := jwt.GetUser(wrongToken)
+				authenticated, err := jwt.GetUser(username, wrongToken)
 				So(err, ShouldBeNil)
 				So(authenticated, ShouldBeFalse)
 
 			})
 
 			Convey("Given a token that is admin, super user should pass", func() {
-				superuser, err := jwt.GetSuperuser(token)
+				superuser, err := jwt.GetSuperuser(username)
 				So(err, ShouldBeNil)
 				So(superuser, ShouldBeTrue)
 				Convey("But disabling superusers by removing superuri should now return false", func() {
@@ -524,7 +521,7 @@ func TestLocalMysqlJWT(t *testing.T) {
 					jwt, err := NewLocalJWTChecker(authOpts, log.DebugLevel, hashing.NewHasher(authOpts, ""), tkOptions)
 					So(err, ShouldBeNil)
 
-					superuser, err := jwt.GetSuperuser(token)
+					superuser, err := jwt.GetSuperuser(username)
 					So(err, ShouldBeNil)
 					So(superuser, ShouldBeFalse)
 				})
@@ -549,8 +546,8 @@ func TestLocalMysqlJWT(t *testing.T) {
 				testTopic1 := `test/topic/1`
 				testTopic2 := `test/topic/2`
 
-				tt1, err1 := jwt.CheckAcl(token, testTopic1, clientID, MOSQ_ACL_READ)
-				tt2, err2 := jwt.CheckAcl(token, testTopic2, clientID, MOSQ_ACL_READ)
+				tt1, err1 := jwt.CheckAcl(username, testTopic1, clientID, MOSQ_ACL_READ)
+				tt2, err2 := jwt.CheckAcl(username, testTopic2, clientID, MOSQ_ACL_READ)
 
 				So(err1, ShouldBeNil)
 				So(err2, ShouldBeNil)
@@ -562,7 +559,7 @@ func TestLocalMysqlJWT(t *testing.T) {
 			Convey("Given read only privileges, a pub check should fail", func() {
 
 				testTopic1 := "test/topic/1"
-				tt1, err1 := jwt.CheckAcl(token, testTopic1, clientID, MOSQ_ACL_WRITE)
+				tt1, err1 := jwt.CheckAcl(username, testTopic1, clientID, MOSQ_ACL_WRITE)
 				So(err1, ShouldBeNil)
 				So(tt1, ShouldBeFalse)
 
@@ -570,8 +567,8 @@ func TestLocalMysqlJWT(t *testing.T) {
 
 			Convey("Given wildcard subscriptions against strict db acl, acl checks should fail", func() {
 
-				tt1, err1 := jwt.CheckAcl(token, singleLevelACL, clientID, MOSQ_ACL_READ)
-				tt2, err2 := jwt.CheckAcl(token, hierarchyACL, clientID, MOSQ_ACL_READ)
+				tt1, err1 := jwt.CheckAcl(username, singleLevelACL, clientID, MOSQ_ACL_READ)
+				tt2, err2 := jwt.CheckAcl(username, hierarchyACL, clientID, MOSQ_ACL_READ)
 
 				So(err1, ShouldBeNil)
 				So(err2, ShouldBeNil)
@@ -586,7 +583,7 @@ func TestLocalMysqlJWT(t *testing.T) {
 			So(err, ShouldBeNil)
 
 			Convey("Given a topic not strictly present that matches a db single level wildcard, acl check should pass", func() {
-				tt1, err1 := jwt.CheckAcl(token, "test/topic/whatever", clientID, MOSQ_ACL_READ)
+				tt1, err1 := jwt.CheckAcl(username, "test/topic/whatever", clientID, MOSQ_ACL_READ)
 				So(err1, ShouldBeNil)
 				So(tt1, ShouldBeTrue)
 			})
@@ -597,7 +594,7 @@ func TestLocalMysqlJWT(t *testing.T) {
 			So(err, ShouldBeNil)
 
 			Convey("Given a topic not strictly present that matches a hierarchy wildcard, acl check should pass", func() {
-				tt1, err1 := jwt.CheckAcl(token, "test/what/ever", clientID, MOSQ_ACL_READ)
+				tt1, err1 := jwt.CheckAcl(username, "test/what/ever", clientID, MOSQ_ACL_READ)
 				So(err1, ShouldBeNil)
 				So(tt1, ShouldBeTrue)
 			})
@@ -612,15 +609,15 @@ func TestLocalMysqlJWT(t *testing.T) {
 
 				Convey("So checking against them should give false and true for any user", func() {
 
-					tt1, err1 := jwt.CheckAcl(token, singleLevelACL, clientID, MOSQ_ACL_READ)
-					tt2, err2 := jwt.CheckAcl(token, hierarchyACL, clientID, MOSQ_ACL_READ)
+					tt1, err1 := jwt.CheckAcl(username, singleLevelACL, clientID, MOSQ_ACL_READ)
+					tt2, err2 := jwt.CheckAcl(username, hierarchyACL, clientID, MOSQ_ACL_READ)
 
 					So(err1, ShouldBeNil)
 					So(err2, ShouldBeNil)
 					So(tt1, ShouldBeTrue)
 					So(tt2, ShouldBeTrue)
 
-					superuser, err := jwt.GetSuperuser(token)
+					superuser, err := jwt.GetSuperuser(username)
 					So(err, ShouldBeNil)
 					So(superuser, ShouldBeFalse)
 
@@ -658,37 +655,43 @@ func TestJWTAllJsonServer(t *testing.T) {
 			Error: "",
 		}
 
-		var jsonResponse []byte
-
 		w.WriteHeader(http.StatusOK)
 		w.Header().Set("Content-Type", "application/json")
 
-		gToken := r.Header.Get("Authorization")
-		gToken = strings.TrimPrefix(gToken, "Bearer ")
+		var data interface{}
+		var params map[string]interface{}
 
-		if token != gToken {
+		body, _ := ioutil.ReadAll(r.Body)
+		defer r.Body.Close()
+
+		err := json.Unmarshal(body, &data)
+
+		if err != nil {
 			httpResponse.Ok = false
-			httpResponse.Error = "Wrong token."
+			httpResponse.Error = "Json unmarshal error"
 		} else {
 			switch r.URL.Path {
-			case "/user", "/superuser":
-				httpResponse.Ok = true
-				httpResponse.Error = ""
-			case "/acl":
-				var data interface{}
-				var params map[string]interface{}
-
-				body, _ := ioutil.ReadAll(r.Body)
-				defer r.Body.Close()
-
-				err := json.Unmarshal(body, &data)
-
-				if err != nil {
+			case "/user":
+				params = data.(map[string]interface{})
+				gToken := r.Header.Get("Authorization")
+				gToken = strings.TrimPrefix(gToken, "Bearer ")
+				if token == gToken && params["username"].(string) == username {
+					httpResponse.Ok = true
+					httpResponse.Error = ""
+				} else {
 					httpResponse.Ok = false
-					httpResponse.Error = "Json unmarshal error"
-					break
+					httpResponse.Error = "Wrong token."
 				}
-
+			case "/superuser":
+				params = data.(map[string]interface{})
+				if params["username"].(string) == "admin" {
+					httpResponse.Ok = true
+					httpResponse.Error = ""
+				} else {
+					httpResponse.Ok = false
+					httpResponse.Error = "User is not a superuser."
+				}
+			case "/acl":
 				params = data.(map[string]interface{})
 				paramsAcc := int64(params["acc"].(float64))
 
@@ -729,7 +732,7 @@ func TestJWTAllJsonServer(t *testing.T) {
 
 		Convey("Given correct password/username, get user should return true", func() {
 
-			authenticated, err := hb.GetUser(token, "", "")
+			authenticated, err := hb.GetUser(username, token, "")
 			So(err, ShouldBeNil)
 			So(authenticated, ShouldBeTrue)
 
@@ -737,7 +740,7 @@ func TestJWTAllJsonServer(t *testing.T) {
 
 		Convey("Given incorrect password/username, get user should return false", func() {
 
-			authenticated, err := hb.GetUser(wrongToken, "", "")
+			authenticated, err := hb.GetUser(username, wrongToken, "")
 			So(err, ShouldBeNil)
 			So(authenticated, ShouldBeFalse)
 
@@ -745,7 +748,7 @@ func TestJWTAllJsonServer(t *testing.T) {
 
 		Convey("Given correct username, get superuser should return true", func() {
 
-			authenticated, err := hb.GetSuperuser(token)
+			authenticated, err := hb.GetSuperuser("admin")
 			So(err, ShouldBeNil)
 			So(authenticated, ShouldBeTrue)
 
@@ -754,7 +757,7 @@ func TestJWTAllJsonServer(t *testing.T) {
 				hb, err := NewJWT(authOpts, log.DebugLevel, hashing.NewHasher(authOpts, ""), version)
 				So(err, ShouldBeNil)
 
-				superuser, err := hb.GetSuperuser(username)
+				superuser, err := hb.GetSuperuser("admin")
 				So(err, ShouldBeNil)
 				So(superuser, ShouldBeFalse)
 			})
@@ -763,7 +766,7 @@ func TestJWTAllJsonServer(t *testing.T) {
 
 		Convey("Given incorrect username, get superuser should return false", func() {
 
-			authenticated, err := hb.GetSuperuser(wrongToken)
+			authenticated, err := hb.GetSuperuser("non-admin")
 			So(err, ShouldBeNil)
 			So(authenticated, ShouldBeFalse)
 
@@ -771,7 +774,7 @@ func TestJWTAllJsonServer(t *testing.T) {
 
 		Convey("Given correct topic, username, client id and acc, acl check should return true", func() {
 
-			authenticated, err := hb.CheckAcl(token, topic, clientID, MOSQ_ACL_READ)
+			authenticated, err := hb.CheckAcl(username, topic, clientID, MOSQ_ACL_READ)
 			So(err, ShouldBeNil)
 			So(authenticated, ShouldBeTrue)
 
@@ -779,7 +782,7 @@ func TestJWTAllJsonServer(t *testing.T) {
 
 		Convey("Given an acc that requires more privileges than the user has, check acl should return false", func() {
 
-			authenticated, err := hb.CheckAcl(token, topic, clientID, MOSQ_ACL_WRITE)
+			authenticated, err := hb.CheckAcl(username, topic, clientID, MOSQ_ACL_WRITE)
 			So(err, ShouldBeNil)
 			So(authenticated, ShouldBeFalse)
 
@@ -787,7 +790,7 @@ func TestJWTAllJsonServer(t *testing.T) {
 
 		Convey("Given a topic not present in acls, check acl should return false", func() {
 
-			authenticated, err := hb.CheckAcl(token, "fake/topic", clientID, MOSQ_ACL_READ)
+			authenticated, err := hb.CheckAcl(username, "fake/topic", clientID, MOSQ_ACL_READ)
 			So(err, ShouldBeNil)
 			So(authenticated, ShouldBeFalse)
 
@@ -795,7 +798,7 @@ func TestJWTAllJsonServer(t *testing.T) {
 
 		Convey("Given a clientID that doesn't match, check acl should return false", func() {
 
-			authenticated, err := hb.CheckAcl(token, topic, "fake_client_id", MOSQ_ACL_READ)
+			authenticated, err := hb.CheckAcl(username, topic, "fake_client_id", MOSQ_ACL_READ)
 			So(err, ShouldBeNil)
 			So(authenticated, ShouldBeFalse)
 
@@ -829,19 +832,30 @@ func TestJWTJsonStatusOnlyServer(t *testing.T) {
 
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest)
-		}
-
-		gToken := r.Header.Get("Authorization")
-		gToken = strings.TrimPrefix(gToken, "Bearer ")
-
-		if token != gToken {
-			w.WriteHeader(http.StatusNotFound)
 			return
 		}
 
 		switch r.URL.Path {
-		case "/user", "/superuser":
-			w.WriteHeader(http.StatusOK)
+		case "/user":
+			gToken := r.Header.Get("Authorization")
+			gToken = strings.TrimPrefix(gToken, "Bearer ")
+			if token != gToken {
+				w.WriteHeader(http.StatusNotFound)
+				break
+			}
+			params = data.(map[string]interface{})
+			if params["username"].(string) == username {
+				w.WriteHeader(http.StatusOK)
+				break
+			}
+			w.WriteHeader(http.StatusNotFound)
+		case "/superuser":
+			params = data.(map[string]interface{})
+			if params["username"].(string) == "admin" {
+				w.WriteHeader(http.StatusOK)
+				break
+			}
+			w.WriteHeader(http.StatusNotFound)
 		case "/acl":
 			params = data.(map[string]interface{})
 			paramsAcc := int64(params["acc"].(float64))
@@ -872,7 +886,7 @@ func TestJWTJsonStatusOnlyServer(t *testing.T) {
 
 		Convey("Given correct password/username, get user should return true", func() {
 
-			authenticated, err := hb.GetUser(token, "", "")
+			authenticated, err := hb.GetUser(username, token, "")
 			So(err, ShouldBeNil)
 			So(authenticated, ShouldBeTrue)
 
@@ -880,7 +894,7 @@ func TestJWTJsonStatusOnlyServer(t *testing.T) {
 
 		Convey("Given incorrect password/username, get user should return false", func() {
 
-			authenticated, err := hb.GetUser(wrongToken, "", "")
+			authenticated, err := hb.GetUser(username, wrongToken, "")
 			So(err, ShouldBeNil)
 			So(authenticated, ShouldBeFalse)
 
@@ -888,7 +902,7 @@ func TestJWTJsonStatusOnlyServer(t *testing.T) {
 
 		Convey("Given correct username, get superuser should return true", func() {
 
-			authenticated, err := hb.GetSuperuser(token)
+			authenticated, err := hb.GetSuperuser("admin")
 			So(err, ShouldBeNil)
 			So(authenticated, ShouldBeTrue)
 
@@ -897,7 +911,7 @@ func TestJWTJsonStatusOnlyServer(t *testing.T) {
 				hb, err := NewJWT(authOpts, log.DebugLevel, hashing.NewHasher(authOpts, ""), version)
 				So(err, ShouldBeNil)
 
-				superuser, err := hb.GetSuperuser(username)
+				superuser, err := hb.GetSuperuser("admin")
 				So(err, ShouldBeNil)
 				So(superuser, ShouldBeFalse)
 			})
@@ -906,7 +920,7 @@ func TestJWTJsonStatusOnlyServer(t *testing.T) {
 
 		Convey("Given incorrect username, get superuser should return false", func() {
 
-			authenticated, err := hb.GetSuperuser(wrongToken)
+			authenticated, err := hb.GetSuperuser("non-admin")
 			So(err, ShouldBeNil)
 			So(authenticated, ShouldBeFalse)
 
@@ -914,7 +928,7 @@ func TestJWTJsonStatusOnlyServer(t *testing.T) {
 
 		Convey("Given correct topic, username, client id and acc, acl check should return true", func() {
 
-			authenticated, err := hb.CheckAcl(token, topic, clientID, MOSQ_ACL_READ)
+			authenticated, err := hb.CheckAcl(username, topic, clientID, MOSQ_ACL_READ)
 			So(err, ShouldBeNil)
 			So(authenticated, ShouldBeTrue)
 
@@ -922,7 +936,7 @@ func TestJWTJsonStatusOnlyServer(t *testing.T) {
 
 		Convey("Given an acc that requires more privileges than the user has, check acl should return false", func() {
 
-			authenticated, err := hb.CheckAcl(token, topic, clientID, MOSQ_ACL_WRITE)
+			authenticated, err := hb.CheckAcl(username, topic, clientID, MOSQ_ACL_WRITE)
 			So(err, ShouldBeNil)
 			So(authenticated, ShouldBeFalse)
 
@@ -930,7 +944,7 @@ func TestJWTJsonStatusOnlyServer(t *testing.T) {
 
 		Convey("Given a topic not present in acls, check acl should return false", func() {
 
-			authenticated, err := hb.CheckAcl(token, "fake/topic", clientID, MOSQ_ACL_READ)
+			authenticated, err := hb.CheckAcl(username, "fake/topic", clientID, MOSQ_ACL_READ)
 			So(err, ShouldBeNil)
 			So(authenticated, ShouldBeFalse)
 
@@ -938,7 +952,7 @@ func TestJWTJsonStatusOnlyServer(t *testing.T) {
 
 		Convey("Given a clientID that doesn't match, check acl should return false", func() {
 
-			authenticated, err := hb.CheckAcl(token, topic, "fake_client_id", MOSQ_ACL_READ)
+			authenticated, err := hb.CheckAcl(username, topic, "fake_client_id", MOSQ_ACL_READ)
 			So(err, ShouldBeNil)
 			So(authenticated, ShouldBeFalse)
 
@@ -974,19 +988,30 @@ func TestJWTJsonTextResponseServer(t *testing.T) {
 
 		if err != nil {
 			w.Write([]byte(err.Error()))
-		}
-
-		gToken := r.Header.Get("Authorization")
-		gToken = strings.TrimPrefix(gToken, "Bearer ")
-
-		if token != gToken {
-			w.Write([]byte("Wrong credentials."))
 			return
 		}
 
 		switch r.URL.Path {
-		case "/user", "/superuser":
-			w.Write([]byte("ok"))
+		case "/user":
+			gToken := r.Header.Get("Authorization")
+			gToken = strings.TrimPrefix(gToken, "Bearer ")
+			if token != gToken {
+				w.Write([]byte("Wrong credentials."))
+				break
+			}
+			params = data.(map[string]interface{})
+			if params["username"].(string) == username {
+				w.Write([]byte("ok"))
+				break
+			}
+			w.Write([]byte("User check failed."))
+		case "/superuser":
+			params = data.(map[string]interface{})
+			if params["username"].(string) == "admin" {
+				w.Write([]byte("ok"))
+				break
+			}
+			w.Write([]byte("Superuser check failed."))
 		case "/acl":
 			params = data.(map[string]interface{})
 			paramsAcc := int64(params["acc"].(float64))
@@ -1017,7 +1042,7 @@ func TestJWTJsonTextResponseServer(t *testing.T) {
 
 		Convey("Given correct password/username, get user should return true", func() {
 
-			authenticated, err := hb.GetUser(token, "", "")
+			authenticated, err := hb.GetUser(username, token, "")
 			So(err, ShouldBeNil)
 			So(authenticated, ShouldBeTrue)
 
@@ -1025,7 +1050,7 @@ func TestJWTJsonTextResponseServer(t *testing.T) {
 
 		Convey("Given incorrect password/username, get user should return false", func() {
 
-			authenticated, err := hb.GetUser(wrongToken, "", "")
+			authenticated, err := hb.GetUser(username, wrongToken, "")
 			So(err, ShouldBeNil)
 			So(authenticated, ShouldBeFalse)
 
@@ -1033,7 +1058,7 @@ func TestJWTJsonTextResponseServer(t *testing.T) {
 
 		Convey("Given correct username, get superuser should return true", func() {
 
-			authenticated, err := hb.GetSuperuser(token)
+			authenticated, err := hb.GetSuperuser("admin")
 			So(err, ShouldBeNil)
 			So(authenticated, ShouldBeTrue)
 
@@ -1042,7 +1067,7 @@ func TestJWTJsonTextResponseServer(t *testing.T) {
 				hb, err := NewJWT(authOpts, log.DebugLevel, hashing.NewHasher(authOpts, ""), version)
 				So(err, ShouldBeNil)
 
-				superuser, err := hb.GetSuperuser(username)
+				superuser, err := hb.GetSuperuser("admin")
 				So(err, ShouldBeNil)
 				So(superuser, ShouldBeFalse)
 			})
@@ -1051,7 +1076,7 @@ func TestJWTJsonTextResponseServer(t *testing.T) {
 
 		Convey("Given incorrect username, get superuser should return false", func() {
 
-			authenticated, err := hb.GetSuperuser(wrongToken)
+			authenticated, err := hb.GetSuperuser("non-admin")
 			So(err, ShouldBeNil)
 			So(authenticated, ShouldBeFalse)
 
@@ -1059,7 +1084,7 @@ func TestJWTJsonTextResponseServer(t *testing.T) {
 
 		Convey("Given correct topic, username, client id and acc, acl check should return true", func() {
 
-			authenticated, err := hb.CheckAcl(token, topic, clientID, MOSQ_ACL_READ)
+			authenticated, err := hb.CheckAcl(username, topic, clientID, MOSQ_ACL_READ)
 			So(err, ShouldBeNil)
 			So(authenticated, ShouldBeTrue)
 
@@ -1122,27 +1147,34 @@ func TestJWTFormJsonResponseServer(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 		w.Header().Set("Content-Type", "application/json")
 
-		gToken := r.Header.Get("Authorization")
-		gToken = strings.TrimPrefix(gToken, "Bearer ")
-
-		if token != gToken {
-			httpResponse.Ok = false
-			httpResponse.Error = "Wrong credentials."
-		} else {
-			switch r.URL.Path {
-			case "/user", "/superuser":
+		switch r.URL.Path {
+		case "/user":
+			gToken := r.Header.Get("Authorization")
+			gToken = strings.TrimPrefix(gToken, "Bearer ")
+			if token == gToken && params["username"][0] == username {
 				httpResponse.Ok = true
 				httpResponse.Error = ""
-			case "/acl":
-				paramsAcc, _ := strconv.ParseInt(params["acc"][0], 10, 64)
-				if params["topic"][0] == topic && params["clientid"][0] == clientID && paramsAcc <= acc {
-					httpResponse.Ok = true
-					httpResponse.Error = ""
-					break
-				}
-				httpResponse.Ok = false
-				httpResponse.Error = "Acl check failed."
+				break
 			}
+			httpResponse.Ok = false
+			httpResponse.Error = "Wrong credentials."
+		case "/superuser":
+			if params["username"][0] == "admin" {
+				httpResponse.Ok = true
+				httpResponse.Error = ""
+				break
+			}
+			httpResponse.Ok = false
+			httpResponse.Error = "Superuser check failed."
+		case "/acl":
+			paramsAcc, _ := strconv.ParseInt(params["acc"][0], 10, 64)
+			if params["topic"][0] == topic && params["clientid"][0] == clientID && paramsAcc <= acc {
+				httpResponse.Ok = true
+				httpResponse.Error = ""
+				break
+			}
+			httpResponse.Ok = false
+			httpResponse.Error = "Acl check failed."
 		}
 
 		jsonResponse, err := json.Marshal(httpResponse)
@@ -1172,7 +1204,7 @@ func TestJWTFormJsonResponseServer(t *testing.T) {
 
 		Convey("Given correct password/username, get user should return true", func() {
 
-			authenticated, err := hb.GetUser(token, "", "")
+			authenticated, err := hb.GetUser(username, token, "")
 			So(err, ShouldBeNil)
 			So(authenticated, ShouldBeTrue)
 
@@ -1180,7 +1212,7 @@ func TestJWTFormJsonResponseServer(t *testing.T) {
 
 		Convey("Given incorrect password/username, get user should return false", func() {
 
-			authenticated, err := hb.GetUser(wrongToken, "", "")
+			authenticated, err := hb.GetUser(username, wrongToken, "")
 			So(err, ShouldBeNil)
 			So(authenticated, ShouldBeFalse)
 
@@ -1188,7 +1220,7 @@ func TestJWTFormJsonResponseServer(t *testing.T) {
 
 		Convey("Given correct username, get superuser should return true", func() {
 
-			authenticated, err := hb.GetSuperuser(token)
+			authenticated, err := hb.GetSuperuser("admin")
 			So(err, ShouldBeNil)
 			So(authenticated, ShouldBeTrue)
 
@@ -1197,7 +1229,7 @@ func TestJWTFormJsonResponseServer(t *testing.T) {
 				hb, err := NewJWT(authOpts, log.DebugLevel, hashing.NewHasher(authOpts, ""), version)
 				So(err, ShouldBeNil)
 
-				superuser, err := hb.GetSuperuser(username)
+				superuser, err := hb.GetSuperuser("admin")
 				So(err, ShouldBeNil)
 				So(superuser, ShouldBeFalse)
 			})
@@ -1206,7 +1238,7 @@ func TestJWTFormJsonResponseServer(t *testing.T) {
 
 		Convey("Given incorrect username, get superuser should return false", func() {
 
-			authenticated, err := hb.GetSuperuser(wrongToken)
+			authenticated, err := hb.GetSuperuser("non-admin")
 			So(err, ShouldBeNil)
 			So(authenticated, ShouldBeFalse)
 
@@ -1214,7 +1246,7 @@ func TestJWTFormJsonResponseServer(t *testing.T) {
 
 		Convey("Given correct topic, username, client id and acc, acl check should return true", func() {
 
-			authenticated, err := hb.CheckAcl(token, topic, clientID, MOSQ_ACL_READ)
+			authenticated, err := hb.CheckAcl(username, topic, clientID, MOSQ_ACL_READ)
 			So(err, ShouldBeNil)
 			So(authenticated, ShouldBeTrue)
 
@@ -1222,7 +1254,7 @@ func TestJWTFormJsonResponseServer(t *testing.T) {
 
 		Convey("Given an acc that requires more privileges than the user has, check acl should return false", func() {
 
-			authenticated, err := hb.CheckAcl(token, topic, clientID, MOSQ_ACL_WRITE)
+			authenticated, err := hb.CheckAcl(username, topic, clientID, MOSQ_ACL_WRITE)
 			So(err, ShouldBeNil)
 			So(authenticated, ShouldBeFalse)
 
@@ -1230,7 +1262,7 @@ func TestJWTFormJsonResponseServer(t *testing.T) {
 
 		Convey("Given a topic not present in acls, check acl should return false", func() {
 
-			authenticated, err := hb.CheckAcl(token, "fake/topic", clientID, MOSQ_ACL_READ)
+			authenticated, err := hb.CheckAcl(username, "fake/topic", clientID, MOSQ_ACL_READ)
 			So(err, ShouldBeNil)
 			So(authenticated, ShouldBeFalse)
 
@@ -1238,7 +1270,7 @@ func TestJWTFormJsonResponseServer(t *testing.T) {
 
 		Convey("Given a clientID that doesn't match, check acl should return false", func() {
 
-			authenticated, err := hb.CheckAcl(token, topic, "fake_client_id", MOSQ_ACL_READ)
+			authenticated, err := hb.CheckAcl(username, topic, "fake_client_id", MOSQ_ACL_READ)
 			So(err, ShouldBeNil)
 			So(authenticated, ShouldBeFalse)
 
@@ -1269,17 +1301,21 @@ func TestJWTFormStatusOnlyServer(t *testing.T) {
 		}
 		var params = r.Form
 
-		gToken := r.Header.Get("Authorization")
-		gToken = strings.TrimPrefix(gToken, "Bearer ")
-
-		if token != gToken {
-			w.WriteHeader(http.StatusNotFound)
-			return
-		}
-
 		switch r.URL.Path {
-		case "/user", "/superuser":
-			w.WriteHeader(http.StatusOK)
+		case "/user":
+			gToken := r.Header.Get("Authorization")
+			gToken = strings.TrimPrefix(gToken, "Bearer ")
+			if token == gToken && params["username"][0] == username {
+				w.WriteHeader(http.StatusOK)
+				break
+			}
+			w.WriteHeader(http.StatusNotFound)
+		case "/superuser":
+			if params["username"][0] == "admin" {
+				w.WriteHeader(http.StatusOK)
+				break
+			}
+			w.WriteHeader(http.StatusNotFound)
 		case "/acl":
 			paramsAcc, _ := strconv.ParseInt(params["acc"][0], 10, 64)
 			if params["topic"][0] == topic && params["clientid"][0] == clientID && paramsAcc <= acc {
@@ -1309,7 +1345,7 @@ func TestJWTFormStatusOnlyServer(t *testing.T) {
 
 		Convey("Given correct password/username, get user should return true", func() {
 
-			authenticated, err := hb.GetUser(token, "", "")
+			authenticated, err := hb.GetUser(username, token, "")
 			So(err, ShouldBeNil)
 			So(authenticated, ShouldBeTrue)
 
@@ -1317,7 +1353,7 @@ func TestJWTFormStatusOnlyServer(t *testing.T) {
 
 		Convey("Given incorrect password/username, get user should return false", func() {
 
-			authenticated, err := hb.GetUser(wrongToken, "", "")
+			authenticated, err := hb.GetUser(username, wrongToken, "")
 			So(err, ShouldBeNil)
 			So(authenticated, ShouldBeFalse)
 
@@ -1325,7 +1361,7 @@ func TestJWTFormStatusOnlyServer(t *testing.T) {
 
 		Convey("Given correct username, get superuser should return true", func() {
 
-			authenticated, err := hb.GetSuperuser(token)
+			authenticated, err := hb.GetSuperuser("admin")
 			So(err, ShouldBeNil)
 			So(authenticated, ShouldBeTrue)
 
@@ -1334,7 +1370,7 @@ func TestJWTFormStatusOnlyServer(t *testing.T) {
 				hb, err := NewJWT(authOpts, log.DebugLevel, hashing.NewHasher(authOpts, ""), version)
 				So(err, ShouldBeNil)
 
-				superuser, err := hb.GetSuperuser(username)
+				superuser, err := hb.GetSuperuser("admin")
 				So(err, ShouldBeNil)
 				So(superuser, ShouldBeFalse)
 			})
@@ -1343,7 +1379,7 @@ func TestJWTFormStatusOnlyServer(t *testing.T) {
 
 		Convey("Given incorrect username, get superuser should return false", func() {
 
-			authenticated, err := hb.GetSuperuser(wrongToken)
+			authenticated, err := hb.GetSuperuser("non-admin")
 			So(err, ShouldBeNil)
 			So(authenticated, ShouldBeFalse)
 
@@ -1351,7 +1387,7 @@ func TestJWTFormStatusOnlyServer(t *testing.T) {
 
 		Convey("Given correct topic, username, client id and acc, acl check should return true", func() {
 
-			authenticated, err := hb.CheckAcl(token, topic, clientID, MOSQ_ACL_READ)
+			authenticated, err := hb.CheckAcl(username, topic, clientID, MOSQ_ACL_READ)
 			So(err, ShouldBeNil)
 			So(authenticated, ShouldBeTrue)
 
@@ -1359,7 +1395,7 @@ func TestJWTFormStatusOnlyServer(t *testing.T) {
 
 		Convey("Given an acc that requires more privileges than the user has, check acl should return false", func() {
 
-			authenticated, err := hb.CheckAcl(token, topic, clientID, MOSQ_ACL_WRITE)
+			authenticated, err := hb.CheckAcl(username, topic, clientID, MOSQ_ACL_WRITE)
 			So(err, ShouldBeNil)
 			So(authenticated, ShouldBeFalse)
 
@@ -1367,7 +1403,7 @@ func TestJWTFormStatusOnlyServer(t *testing.T) {
 
 		Convey("Given a topic not present in acls, check acl should return false", func() {
 
-			authenticated, err := hb.CheckAcl(token, "fake/topic", clientID, MOSQ_ACL_READ)
+			authenticated, err := hb.CheckAcl(username, "fake/topic", clientID, MOSQ_ACL_READ)
 			So(err, ShouldBeNil)
 			So(authenticated, ShouldBeFalse)
 
@@ -1375,7 +1411,7 @@ func TestJWTFormStatusOnlyServer(t *testing.T) {
 
 		Convey("Given a clientID that doesn't match, check acl should return false", func() {
 
-			authenticated, err := hb.CheckAcl(token, topic, "fake_client_id", MOSQ_ACL_READ)
+			authenticated, err := hb.CheckAcl(username, topic, "fake_client_id", MOSQ_ACL_READ)
 			So(err, ShouldBeNil)
 			So(authenticated, ShouldBeFalse)
 
@@ -1409,17 +1445,21 @@ func TestJWTFormTextResponseServer(t *testing.T) {
 
 		var params = r.Form
 
-		gToken := r.Header.Get("Authorization")
-		gToken = strings.TrimPrefix(gToken, "Bearer ")
-
-		if token != gToken {
-			w.Write([]byte("Wrong credentials."))
-			return
-		}
-
 		switch r.URL.Path {
-		case "/user", "/superuser":
-			w.Write([]byte("ok"))
+		case "/user":
+			gToken := r.Header.Get("Authorization")
+			gToken = strings.TrimPrefix(gToken, "Bearer ")
+			if token == gToken && params["username"][0] == username {
+				w.Write([]byte("ok"))
+				return
+			}
+			w.Write([]byte("Wrong credentials."))
+		case "/superuser":
+			if params["username"][0] == "admin" {
+				w.Write([]byte("ok"))
+				return
+			}
+			w.Write([]byte("Superuser check failed."))
 		case "/acl":
 			paramsAcc, _ := strconv.ParseInt(params["acc"][0], 10, 64)
 			if params["topic"][0] == topic && params["clientid"][0] == clientID && paramsAcc <= acc {
@@ -1449,7 +1489,7 @@ func TestJWTFormTextResponseServer(t *testing.T) {
 
 		Convey("Given correct password/username, get user should return true", func() {
 
-			authenticated, err := hb.GetUser(token, "", "")
+			authenticated, err := hb.GetUser(username, token, "")
 			So(err, ShouldBeNil)
 			So(authenticated, ShouldBeTrue)
 
@@ -1457,7 +1497,7 @@ func TestJWTFormTextResponseServer(t *testing.T) {
 
 		Convey("Given incorrect password/username, get user should return false", func() {
 
-			authenticated, err := hb.GetUser(wrongToken, "", "")
+			authenticated, err := hb.GetUser(username, wrongToken, "")
 			So(err, ShouldBeNil)
 			So(authenticated, ShouldBeFalse)
 
@@ -1465,7 +1505,7 @@ func TestJWTFormTextResponseServer(t *testing.T) {
 
 		Convey("Given correct username, get superuser should return true", func() {
 
-			authenticated, err := hb.GetSuperuser(token)
+			authenticated, err := hb.GetSuperuser("admin")
 			So(err, ShouldBeNil)
 			So(authenticated, ShouldBeTrue)
 
@@ -1474,7 +1514,7 @@ func TestJWTFormTextResponseServer(t *testing.T) {
 				hb, err := NewJWT(authOpts, log.DebugLevel, hashing.NewHasher(authOpts, ""), version)
 				So(err, ShouldBeNil)
 
-				superuser, err := hb.GetSuperuser(username)
+				superuser, err := hb.GetSuperuser("admin")
 				So(err, ShouldBeNil)
 				So(superuser, ShouldBeFalse)
 			})
@@ -1483,7 +1523,7 @@ func TestJWTFormTextResponseServer(t *testing.T) {
 
 		Convey("Given incorrect username, get superuser should return false", func() {
 
-			authenticated, err := hb.GetSuperuser(wrongToken)
+			authenticated, err := hb.GetSuperuser("non-admin")
 			So(err, ShouldBeNil)
 			So(authenticated, ShouldBeFalse)
 
@@ -1491,7 +1531,7 @@ func TestJWTFormTextResponseServer(t *testing.T) {
 
 		Convey("Given correct topic, username, client id and acc, acl check should return true", func() {
 
-			authenticated, err := hb.CheckAcl(token, topic, clientID, MOSQ_ACL_READ)
+			authenticated, err := hb.CheckAcl(username, topic, clientID, MOSQ_ACL_READ)
 			So(err, ShouldBeNil)
 			So(authenticated, ShouldBeTrue)
 
@@ -1499,7 +1539,7 @@ func TestJWTFormTextResponseServer(t *testing.T) {
 
 		Convey("Given an acc that requires more privileges than the user has, check acl should return false", func() {
 
-			authenticated, err := hb.CheckAcl(token, topic, clientID, MOSQ_ACL_WRITE)
+			authenticated, err := hb.CheckAcl(username, topic, clientID, MOSQ_ACL_WRITE)
 			So(err, ShouldBeNil)
 			So(authenticated, ShouldBeFalse)
 
@@ -1507,7 +1547,7 @@ func TestJWTFormTextResponseServer(t *testing.T) {
 
 		Convey("Given a topic not present in acls, check acl should return false", func() {
 
-			authenticated, err := hb.CheckAcl(token, "fake/topic", clientID, MOSQ_ACL_READ)
+			authenticated, err := hb.CheckAcl(username, "fake/topic", clientID, MOSQ_ACL_READ)
 			So(err, ShouldBeNil)
 			So(authenticated, ShouldBeFalse)
 
@@ -1515,7 +1555,7 @@ func TestJWTFormTextResponseServer(t *testing.T) {
 
 		Convey("Given a clientID that doesn't match, check acl should return false", func() {
 
-			authenticated, err := hb.CheckAcl(token, topic, "fake_client_id", MOSQ_ACL_READ)
+			authenticated, err := hb.CheckAcl(username, topic, "fake_client_id", MOSQ_ACL_READ)
 			So(err, ShouldBeNil)
 			So(authenticated, ShouldBeFalse)
 

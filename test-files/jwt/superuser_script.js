@@ -1,8 +1,8 @@
-function checkSuperuser(token) {
-    if(token == "admin") {
+function checkSuperuser(username) {
+    if(username == "admin") {
         return true;
     }
     return false;
 }
 
-checkSuperuser(token);
+checkSuperuser(username);

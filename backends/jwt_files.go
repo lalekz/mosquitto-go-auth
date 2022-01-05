@@ -35,29 +35,27 @@ func NewFilesJWTChecker(authOpts map[string]string, logLevel log.Level, hasher h
 	}, nil
 }
 
-func (o *filesJWTChecker) GetUser(token string) (bool, error) {
-	_, err := getUsernameForToken(o.options, token, o.options.skipUserExpiration)
+func (o *filesJWTChecker) GetUser(username, token string) (bool, error) {
+	tokenUsername, err := getUsernameForToken(o.options, token, o.options.skipUserExpiration)
 
 	if err != nil {
-		log.Printf("jwt local get user error: %s", err)
+		log.Debugf("jwt local get user error: %s", err)
+		return false, err
+	}
+
+	if tokenUsername != username {
+		log.Printf("jwt local get user error: username does not match token")
 		return false, err
 	}
 
 	return true, nil
 }
 
-func (o *filesJWTChecker) GetSuperuser(token string) (bool, error) {
+func (o *filesJWTChecker) GetSuperuser(username string) (bool, error) {
 	return false, nil
 }
 
-func (o *filesJWTChecker) CheckAcl(token, topic, clientid string, acc int32) (bool, error) {
-	username, err := getUsernameForToken(o.options, token, o.options.skipACLExpiration)
-
-	if err != nil {
-		log.Printf("jwt get user error: %s", err)
-		return false, err
-	}
-
+func (o *filesJWTChecker) CheckAcl(username, topic, clientid string, acc int32) (bool, error) {
 	return o.checker.CheckAcl(username, topic, clientid, acc)
 }
 

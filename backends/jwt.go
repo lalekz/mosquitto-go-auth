@@ -16,13 +16,12 @@ type JWT struct {
 type tokenOptions struct {
 	parseToken         bool
 	skipUserExpiration bool
-	skipACLExpiration  bool
 	secret             interface{}
 	userField          string
 }
 
 type jwtChecker interface {
-	GetUser(username string) (bool, error)
+	GetUser(username, token string) (bool, error)
 	GetSuperuser(username string) (bool, error)
 	CheckAcl(username, topic, clientid string, acc int32) (bool, error)
 	Halt()
@@ -59,10 +58,6 @@ func NewJWT(authOpts map[string]string, logLevel log.Level, hasher hashing.HashC
 
 	if skipUserExpiration, ok := authOpts["jwt_skip_user_expiration"]; ok && skipUserExpiration == "true" {
 		options.skipUserExpiration = true
-	}
-
-	if skipACLExpiration, ok := authOpts["jwt_skip_acl_expiration"]; ok && skipACLExpiration == "true" {
-		options.skipACLExpiration = true
 	}
 
 	if secret, ok := authOpts["jwt_secret"]; ok {
@@ -111,18 +106,18 @@ func NewJWT(authOpts map[string]string, logLevel log.Level, hasher hashing.HashC
 }
 
 //GetUser authenticates a given user.
-func (o *JWT) GetUser(token, password, clientid string) (bool, error) {
-	return o.checker.GetUser(token)
+func (o *JWT) GetUser(username, token, clientid string) (bool, error) {
+	return o.checker.GetUser(username, token)
 }
 
 //GetSuperuser checks if the given user is a superuser.
-func (o *JWT) GetSuperuser(token string) (bool, error) {
-	return o.checker.GetSuperuser(token)
+func (o *JWT) GetSuperuser(username string) (bool, error) {
+	return o.checker.GetSuperuser(username)
 }
 
 //CheckAcl checks user authorization.
-func (o *JWT) CheckAcl(token, topic, clientid string, acc int32) (bool, error) {
-	return o.checker.CheckAcl(token, topic, clientid, acc)
+func (o *JWT) CheckAcl(username, topic, clientid string, acc int32) (bool, error) {
+	return o.checker.CheckAcl(username, topic, clientid, acc)
 }
 
 //GetName returns the backend's name

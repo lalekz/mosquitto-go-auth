@@ -1,8 +1,8 @@
-function checkUser(token, username) {
+function checkUser(username, token) {
     if(username == "test") {
         return true;
     }
     return false;
 }
 
-checkUser(token, username);
+checkUser(username, token);

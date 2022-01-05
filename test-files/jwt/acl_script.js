@@ -1,5 +1,5 @@
-function checkAcl(token, topic, clientid, acc) {
-    if(token != "correct") {
+function checkAcl(username, topic, clientid, acc) {
+    if(username != "test") {
         return false;
     }
 
@@ -18,4 +18,4 @@ function checkAcl(token, topic, clientid, acc) {
     return true;
 }
 
-checkAcl(token, topic, clientid, acc);
+checkAcl(username, topic, clientid, acc);

@@ -124,83 +124,63 @@ func NewRemoteJWTChecker(authOpts map[string]string, options tokenOptions, versi
 	return checker, nil
 }
 
-func (o *remoteJWTChecker) GetUser(token string) (bool, error) {
-	var dataMap map[string]interface{}
-	var urlValues url.Values
-
+func (o *remoteJWTChecker) GetUser(username, token string) (bool, error) {
 	if o.options.parseToken {
-		username, err := getUsernameForToken(o.options, token, o.options.skipUserExpiration)
+		tokenUsername, err := getUsernameForToken(o.options, token, o.options.skipUserExpiration)
 
 		if err != nil {
 			log.Printf("jwt remote get user error: %s", err)
 			return false, err
 		}
 
-		dataMap = map[string]interface{}{
-			"username": username,
+		if username != tokenUsername {
+			log.Printf("jwt remote get user error: username does not match token")
+			return false, nil
 		}
+	}
 
-		urlValues = url.Values{
-			"username": []string{username},
-		}
+	dataMap := map[string]interface{}{
+		"username": username,
+	}
+
+	urlValues := url.Values{
+		"username": []string{username},
 	}
 
 	return o.jwtRequest(o.host, o.userUri, token, dataMap, urlValues)
 }
 
-func (o *remoteJWTChecker) GetSuperuser(token string) (bool, error) {
+func (o *remoteJWTChecker) GetSuperuser(username string) (bool, error) {
 	if o.superuserUri == "" {
 		return false, nil
 	}
-	var dataMap map[string]interface{}
-	var urlValues = url.Values{}
 
-	if o.options.parseToken {
-		username, err := getUsernameForToken(o.options, token, o.options.skipUserExpiration)
-
-		if err != nil {
-			log.Printf("jwt remote get superuser error: %s", err)
-			return false, err
-		}
-
-		dataMap = map[string]interface{}{
-			"username": username,
-		}
-
-		urlValues = url.Values{
-			"username": []string{username},
-		}
+	dataMap := map[string]interface{}{
+		"username": username,
 	}
 
-	return o.jwtRequest(o.host, o.superuserUri, token, dataMap, urlValues)
+	urlValues := url.Values{
+		"username": []string{username},
+	}
+
+	return o.jwtRequest(o.host, o.superuserUri, "", dataMap, urlValues)
 }
 
-func (o *remoteJWTChecker) CheckAcl(token, topic, clientid string, acc int32) (bool, error) {
+func (o *remoteJWTChecker) CheckAcl(username, topic, clientid string, acc int32) (bool, error) {
 	dataMap := map[string]interface{}{
+		"username": username,
 		"clientid": clientid,
 		"topic":    topic,
 		"acc":      acc,
 	}
 	var urlValues = url.Values{
+		"username": []string{username},
 		"clientid": []string{clientid},
 		"topic":    []string{topic},
 		"acc":      []string{strconv.Itoa(int(acc))},
 	}
 
-	if o.options.parseToken {
-		username, err := getUsernameForToken(o.options, token, o.options.skipACLExpiration)
-
-		if err != nil {
-			log.Printf("jwt remote check acl error: %s", err)
-			return false, err
-		}
-
-		dataMap["username"] = username
-
-		urlValues.Add("username", username)
-	}
-
-	return o.jwtRequest(o.host, o.aclUri, token, dataMap, urlValues)
+	return o.jwtRequest(o.host, o.aclUri, "", dataMap, urlValues)
 }
 
 func (o *remoteJWTChecker) Halt() {
@@ -259,7 +239,9 @@ func (o *remoteJWTChecker) jwtRequest(host, uri, token string, dataMap map[strin
 		}
 	}
 
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
+	if token != "" {
+		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
+	}
 
 	resp, err = o.client.Do(req)
 

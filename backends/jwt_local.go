@@ -77,25 +77,23 @@ func NewLocalJWTChecker(authOpts map[string]string, logLevel log.Level, hasher h
 	return checker, nil
 }
 
-func (o *localJWTChecker) GetUser(token string) (bool, error) {
-	username, err := getUsernameForToken(o.options, token, o.options.skipUserExpiration)
+func (o *localJWTChecker) GetUser(username, token string) (bool, error) {
+	tokenUsername, err := getUsernameForToken(o.options, token, o.options.skipUserExpiration)
 
 	if err != nil {
 		log.Printf("jwt local get user error: %s", err)
 		return false, err
 	}
 
+	if username != tokenUsername {
+		log.Printf("jwt local get user error: username does not match token")
+		return false, nil
+	}
+
 	return o.getLocalUser(username)
 }
 
-func (o *localJWTChecker) GetSuperuser(token string) (bool, error) {
-	username, err := getUsernameForToken(o.options, token, o.options.skipUserExpiration)
-
-	if err != nil {
-		log.Printf("jwt local get superuser error: %s", err)
-		return false, err
-	}
-
+func (o *localJWTChecker) GetSuperuser(username string) (bool, error) {
 	if o.db == mysqlDB {
 		return o.mysql.GetSuperuser(username)
 	}
@@ -103,14 +101,7 @@ func (o *localJWTChecker) GetSuperuser(token string) (bool, error) {
 	return o.postgres.GetSuperuser(username)
 }
 
-func (o *localJWTChecker) CheckAcl(token, topic, clientid string, acc int32) (bool, error) {
-	username, err := getUsernameForToken(o.options, token, o.options.skipACLExpiration)
-
-	if err != nil {
-		log.Printf("jwt local check acl error: %s", err)
-		return false, err
-	}
-
+func (o *localJWTChecker) CheckAcl(username, topic, clientid string, acc int32) (bool, error) {
 	if o.db == mysqlDB {
 		return o.mysql.CheckAcl(username, topic, clientid, acc)
 	}
