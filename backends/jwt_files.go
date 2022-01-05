@@ -36,7 +36,14 @@ func NewFilesJWTChecker(authOpts map[string]string, logLevel log.Level, hasher h
 }
 
 func (o *filesJWTChecker) GetUser(token string) (bool, error) {
-	return false, nil
+	_, err := getUsernameForToken(o.options, token, o.options.skipUserExpiration)
+
+	if err != nil {
+		log.Printf("jwt local get user error: %s", err)
+		return false, err
+	}
+
+	return true, nil
 }
 
 func (o *filesJWTChecker) GetSuperuser(token string) (bool, error) {
